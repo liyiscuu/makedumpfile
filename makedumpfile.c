@@ -19,7 +19,6 @@
 #include "elf_info.h"
 #include "erase_info.h"
 #include "sadump_info.h"
-#include "cache.h"
 #include <stddef.h>
 #include <ctype.h>
 #include <sys/time.h>
@@ -43,10 +42,6 @@ int nr_gvmem_pfns;
 extern int find_vmemmap();
 
 char filename_stdout[] = FILENAME_STDOUT;
-
-/* Cache statistics */
-static unsigned long long	cache_hit;
-static unsigned long long	cache_miss;
 
 static void first_cycle(mdf_pfn_t start, mdf_pfn_t max, struct cycle *cycle)
 {
@@ -3521,9 +3516,6 @@ out:
 		if (!fallback_to_current_page_size())
 			return FALSE;
 	}
-
-	if (!is_xen_memory() && !cache_init())
-		return FALSE;
 
 	if (info->flag_mem_usage && !get_kcore_dump_loads())
 		return FALSE;
@@ -9044,9 +9036,6 @@ out:
 			return FALSE;
 	}
 
-	if (!cache_init())
-		return FALSE;
-
 	if (xen_info_required == TRUE) {
 		if (!get_xen_info())
 			return FALSE;
@@ -9088,6 +9077,9 @@ void
 print_report(void)
 {
 	mdf_pfn_t pfn_original, pfn_excluded, shrinking;
+	unsigned long long cache_hit, cache_miss, cache_total;
+	kdump_attr_t attr;
+	kdump_status status;
 
 	/*
 	 * /proc/vmcore doesn't contain the memory hole area.
