@@ -211,26 +211,4 @@ unsigned long vtop4_sparc64(unsigned long vaddr)
 	return pte_to_pa(pte) + (vaddr & ~PAGE_MASK);
 }
 
-unsigned long long vaddr_to_paddr_sparc64(unsigned long vaddr)
-{
-	unsigned long paddr;
-
-	paddr = vaddr_to_paddr_general(vaddr);
-	if (paddr != NOT_PADDR)
-		return paddr;
-
-	if (is_vmemmap_addr_sparc64(vaddr))
-		paddr = vmemmap_to_phys_sparc64(vaddr);
-	else if (is_vmalloc_addr_sparc64(vaddr)) {
-		if (info->kernel_version >= KERNEL_VERSION(3, 8, 13))
-			paddr = vtop4_sparc64(vaddr);
-		else
-			paddr = vtop3_sparc64(vaddr);
-	}
-	if (paddr == NOT_PADDR)
-		ERRMSG("vaddr not mapped: 0x%lx\n", vaddr);
-
-	return paddr;
-}
-
 #endif /* sparc64 */
