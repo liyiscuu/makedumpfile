@@ -1103,7 +1103,7 @@ static ulong memparse(char *ptr, char **retptr)
  * of elfcorehdr.
  */
 static ulong
-get_elfcorehdr(ulong cr3)
+get_elfcorehdr(kdump_ctx_t *kdump)
 {
 	char cmdline[BUFSIZE], *ptr;
 	ulong cmdline_vaddr;
@@ -1117,7 +1117,7 @@ get_elfcorehdr(ulong cr3)
 		return 0;
 	}
 	cmdline_vaddr = SYMBOL(saved_command_line);
-	if ((cmdline_paddr = vtop4_x86_64_pagetable(cmdline_vaddr, cr3)) == NOT_PADDR)
+	if ((cmdline_paddr = vaddr_to_paddr_ctx(cmdline_vaddr, kdump)) == NOT_PADDR)
 		return 0;
 
 	DEBUG_MSG("sadump: cmdline vaddr: %lx\n", cmdline_vaddr);
@@ -1126,7 +1126,7 @@ get_elfcorehdr(ulong cr3)
 	if (!readmem(PADDR, cmdline_paddr, &buf_vaddr, sizeof(ulong)))
 		return 0;
 
-	if ((buf_paddr = vtop4_x86_64_pagetable(buf_vaddr, cr3)) == NOT_PADDR)
+	if ((buf_paddr = vaddr_to_paddr_ctx(buf_vaddr, kdump)) == NOT_PADDR)
 		return 0;
 
 	DEBUG_MSG("sadump: cmdline buf vaddr: %lx\n", buf_vaddr);
@@ -1247,7 +1247,7 @@ get_vmcoreinfo_in_kdump_kernel(ulong elfcorehdr, ulong *addr, int *len)
  *    using "elfcorehdr=" and retrieve kaslr_offset/phys_base from vmcoreinfo.
  */
 int
-get_kaslr_offset_from_vmcoreinfo(ulong cr3, ulong *kaslr_offset,
+get_kaslr_offset_from_vmcoreinfo(kdump_ctx_t *kdump, ulong *kaslr_offset,
 				 ulong *phys_base)
 {
 	ulong elfcorehdr_addr = 0;
@@ -1256,7 +1256,7 @@ get_kaslr_offset_from_vmcoreinfo(ulong cr3, ulong *kaslr_offset,
 	char *buf, *pos;
 	int ret = FALSE;
 
-	elfcorehdr_addr = get_elfcorehdr(cr3);
+	elfcorehdr_addr = get_elfcorehdr(kdump);
 	if (!elfcorehdr_addr)
 		return FALSE;
 
@@ -1365,8 +1365,8 @@ finish:
 #define PTI_USER_PGTABLE_BIT		(info->page_shift)
 #define PTI_USER_PGTABLE_MASK		(1 << PTI_USER_PGTABLE_BIT)
 #define CR3_PCID_MASK			0xFFFull
-int
-calc_kaslr_offset(void)
+static int
+do_calc_kaslr_offset(kdump_ctx_t *kdump)
 {
 	struct sadump_header *sh = si->sh_memory;
 	uint64_t idtr = 0, cr3 = 0, idtr_paddr;
@@ -1375,6 +1375,7 @@ calc_kaslr_offset(void)
 	unsigned long divide_error_vmcore, divide_error_vmlinux;
 	unsigned long kaslr_offset, phys_base;
 	unsigned long kaslr_offset_kdump, phys_base_kdump;
+	char opts[256];
 
 	memset(&zero, 0, sizeof(zero));
 	for (apicid = 0; apicid < sh->nr_cpus; ++apicid) {
@@ -1398,8 +1399,17 @@ calc_kaslr_offset(void)
 	else
 		cr3 = smram.Cr3 & ~CR3_PCID_MASK;
 
+	sprintf(opts, "rootpgt=MACHPHYSADDR:0x%lx", cr3);
+	if (kdump_set_string_attr(kdump, KDUMP_ATTR_XLAT_OPTS_POST, opts)
+	    != KDUMP_OK) {
+		ERRMSG("Cannot set up SADUMP page tables: %s\n",
+		       kdump_get_err(kdump));
+		return FALSE;
+	}
+	kdump_clear_attr(kdump, KDUMP_ATTR_OSTYPE);
+
 	/* Convert virtual address of IDT table to physical address */
-	if ((idtr_paddr = vtop4_x86_64_pagetable(idtr, cr3)) == NOT_PADDR)
+	if ((idtr_paddr = vaddr_to_paddr_ctx(idtr, kdump)) == NOT_PADDR)
 		return FALSE;
 
 	/* Now we can calculate kaslr_offset and phys_base */
@@ -1429,7 +1439,7 @@ calc_kaslr_offset(void)
 	 * kernel. If we are in 2nd kernel, get kaslr_offset/phys_base
 	 * from vmcoreinfo
 	 */
-	if (get_kaslr_offset_from_vmcoreinfo(cr3, &kaslr_offset_kdump,
+	if (get_kaslr_offset_from_vmcoreinfo(kdump, &kaslr_offset_kdump,
 					    &phys_base_kdump)) {
 		info->kaslr_offset = kaslr_offset_kdump;
 		info->phys_base = phys_base_kdump;
@@ -1443,6 +1453,24 @@ calc_kaslr_offset(void)
 	DEBUG_MSG("sadump: phys_base=%lx\n", info->phys_base);
 
 	return TRUE;
+}
+
+int
+calc_kaslr_offset(void)
+{
+	kdump_ctx_t *ctx;
+	int ret;
+
+	ctx = kdump_clone(info->ctx_memory, KDUMP_CLONE_XLAT);
+	if (!ctx) {
+		ERRMSG("Cannot allocate libkdumpfile context.\n");
+		return FALSE;
+	}
+
+	ret = do_calc_kaslr_offset(ctx);
+
+	kdump_free(ctx);
+	return ret;
 }
 
 int
