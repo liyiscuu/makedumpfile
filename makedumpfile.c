@@ -3389,8 +3389,6 @@ find_kaslr_offsets()
 int
 initial(void)
 {
-	off_t offset;
-	unsigned long size;
 	int debug_info = FALSE;
 
 	if (is_xen_memory() && !initial_xen())
@@ -3481,7 +3479,6 @@ initial(void)
 	 *       than -x/-i option.
 	 */
 	if (has_vmcoreinfo()) {
-		get_vmcoreinfo(&offset, &size);
 		if (!read_vmcoreinfo())
 			return FALSE;
 		debug_info = TRUE;
@@ -8991,8 +8988,6 @@ initial_xen(void)
 	return FALSE;
 #else
 	int xen_info_required = TRUE;
-	off_t offset;
-	unsigned long size;
 
 #ifndef __x86_64__
 	if (DL_EXCLUDE_ZERO < info->max_dump_level) {
@@ -9073,7 +9068,6 @@ initial_xen(void)
 		/*
 		 * Get the debug information from /proc/vmcore
 		 */
-		get_vmcoreinfo_xen(&offset, &size);
 		if (!read_vmcoreinfo_xen())
 			return FALSE;
 	}
