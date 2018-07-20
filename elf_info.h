@@ -45,7 +45,6 @@ int set_kcore_vmcoreinfo(uint64_t vmcoreinfo_addr, uint64_t vmcoreinfo_len);
 int get_kcore_dump_loads(void);
 
 int is_elf64_memory(void);
-int is_xen_memory(void);
 
 int get_phnum_memory(void);
 int get_phdr_memory(int index, Elf64_Phdr *phdr);
