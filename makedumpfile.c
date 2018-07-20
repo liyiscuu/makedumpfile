@@ -11070,8 +11070,6 @@ out:
 			free(info->dump_header);
 		if (info->splitting_info != NULL)
 			free(info->splitting_info);
-		if (info->p2m_mfn_frame_list != NULL)
-			free(info->p2m_mfn_frame_list);
 		if (info->page_buf != NULL)
 			free(info->page_buf);
 		if (info->parallel_info != NULL)

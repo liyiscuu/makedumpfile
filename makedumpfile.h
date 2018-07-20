@@ -1438,8 +1438,6 @@ struct DumpInfo {
 	unsigned long max_page;
 	unsigned long alloc_bitmap;
 	unsigned long dom0;
-	unsigned long p2m_frames;
-	unsigned long *p2m_mfn_frame_list;
 	int	num_domain;
 	struct domain_list *domain_list;
 #if defined(__x86_64__)
