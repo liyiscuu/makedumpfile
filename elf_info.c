@@ -524,22 +524,6 @@ offset_to_pt_load_end(off_t offset)
 }
 
 /*
- * Judge whether the page is fractional or not.
- */
-int
-page_is_fractional(off_t page_offset)
-{
-	if (page_offset % info->page_size != 0)
-		return TRUE;
-
-	if (offset_to_pt_load_end(page_offset) - page_offset
-	    < info->page_size)
-		return TRUE;
-
-	return FALSE;
-}
-
-/*
  * This function is slow because it doesn't use the memory.
  * It is useful at few calls like get_str_osrelease_from_vmlinux().
  */
@@ -607,34 +591,6 @@ get_max_paddr(void)
 			max_paddr = pls->phys_end;
 	}
 	return max_paddr;
-}
-
-/*
- * Find the LOAD segment which is closest to the requested
- * physical address within a given distance.
- *  If there is no such segment, return a negative number.
- */
-int
-closest_pt_load(unsigned long long paddr, unsigned long distance)
-{
-	int i, bestidx;
-	struct pt_load_segment *pls;
-	unsigned long bestdist;
-
-	bestdist = distance;
-	bestidx = -1;
-	for (i = 0; i < num_pt_loads; ++i) {
-		pls = &pt_loads[i];
-		if (paddr >= pls->phys_end)
-			continue;
-		if (paddr >= pls->phys_start)
-			return i;	/* Exact match */
-		if (bestdist > pls->phys_start - paddr) {
-			bestdist = pls->phys_start - paddr;
-			bestidx = i;
-		}
-	}
-	return bestidx;
 }
 
 int
