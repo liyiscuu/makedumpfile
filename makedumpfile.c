@@ -9045,6 +9045,14 @@ initial_xen(void)
 		       "xen", kdump_get_err(info->ctx_memory_xen));
 		return FALSE;
 	}
+	if (info->xen_phys_start
+	    && kdump_set_number_attr(info->ctx_memory_xen,
+				     KDUMP_ATTR_XEN_PHYS_START,
+				     info->xen_phys_start) != KDUMP_OK) {
+		ERRMSG("Can't set Xen physical start: %s\n",
+		       kdump_get_err(info->ctx_memory_xen));
+		return FALSE;
+	}
 
 	if (!init_xen_crash_info())
 		return FALSE;
